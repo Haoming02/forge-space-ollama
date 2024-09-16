@@ -1,0 +1,8 @@
+.gradio-chatbot {
+    min-height: 72vh !important;
+}
+
+#mdl-name a {
+    color: lightskyblue;
+    text-decoration: underline;
+}
