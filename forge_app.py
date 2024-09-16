@@ -40,29 +40,78 @@ def unload():
         ollama.generate(model=LAST_USED_MODEL, prompt="", keep_alive="0m")
 
 
-def chat(query: str, history: list[tuple[str]], model: str) -> str:
+def chat(query: str | dict, history: list[tuple[str]], model: str) -> str:
     global LAST_USED_MODEL
 
     if model is None or not model.strip():
         raise gr.Error("No Model Selected...")
 
+    multi_modal: bool = isinstance(query, dict)
+
+    if multi_modal:
+        files: list[dict] = query.get("files", [])
+        query: str = query.get("text", "")
+        if not files:
+            multi_modal = False
+    else:
+        files = None
+
+    assert isinstance(query, str)
     if not query.strip():
-        gr.Warning("Empty Input...")
+        gr.Warning("Empty Inputs...")
         return None
+
+    if multi_modal:
+        if len(files) > 1:
+            gr.Warning("Only 1 file is supported at a time...")
+
+        img = None
+        file: dict = files[0]
+
+        file_path: str = file["path"]
+        file_type: str = file.get("mime_type", "")
+
+        if "text" in file_type:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = f.read()
+            query = f"{query}\n{data}"
+
+        elif "image" in file_type:
+            img: str = file_path
+
+        else:
+            flag = False
+            for T in ("json", "yaml", "xml"):
+                if file_path.endswith(T):
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        data = f.read()
+                    query = f"{query}\n```{T}\n{data}\n```"
+                    flag = True
+                    break
+
+            if not flag:
+                if file_path.endswith("pdf"):
+                    raise gr.Error("PDF files are not supported...")
+                elif not file_type:
+                    raise gr.Error("Unrecognized File Type...")
+                else:
+                    raise gr.Error(f"Unsupported File Type: [{file_type}]...")
 
     messages: list[dict] = []
 
     for msg in history:
         q, r = msg
-        if q is None or not q.strip():
+        if q is None or isinstance(q, tuple) or not q.strip():
             continue
-        if r is None or not r.strip():
+        if r is None or isinstance(r, tuple) or not r.strip():
             continue
 
         messages.append({"role": "user", "content": q})
         messages.append({"role": "assistant", "content": r})
 
     messages.append({"role": "user", "content": query})
+    if multi_modal and img:
+        messages[-1].update({"images": [img]})
 
     if LAST_USED_MODEL != model:
         unload()
@@ -113,6 +162,12 @@ with block:
 
                     pull_btn = gr.Button("Download")
 
+            mm_cb = gr.Checkbox(
+                value=False,
+                label="Multi-Modal",
+                info="Enable uploading images and text files",
+            )
+
             unload_btn.click(fn=unload)
 
             pull_btn.click(fn=pull_model, inputs=[mdl_name]).success(
@@ -121,10 +176,28 @@ with block:
                 outputs=[model],
             )
 
-        with gr.Tab(label="Chat", id="chat"):
+        with gr.Tab(label="Chat", id="chat", visible=True) as tab_chat:
             gr.ChatInterface(
-                fn=chat, fill_height=True, fill_width=True, additional_inputs=[model]
+                fn=chat,
+                multimodal=False,
+                fill_height=True,
+                fill_width=True,
+                additional_inputs=[model],
             )
+
+        with gr.Tab(label="Multi-Modal Chat", id="chat-m", visible=False) as tab_chat_m:
+            gr.ChatInterface(
+                fn=chat,
+                multimodal=True,
+                fill_height=True,
+                fill_width=True,
+                additional_inputs=[model],
+            )
+
+        def on_mode(cb: bool):
+            return [gr.update(visible=(not cb)), gr.update(visible=cb)]
+
+        mm_cb.change(fn=on_mode, inputs=[mm_cb], outputs=[tab_chat, tab_chat_m])
 
     block.load(fn=None, js=JS)
     block.unload(fn=unload)

@@ -34,5 +34,7 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
 </p>
 
 ## Roadmap
+- [X] Multi-Modal Support
+    - Only `images`, `.txt`, `.json`, `.yaml`, `.xml` files are supported...
 - [ ] Save/Load Chat History
-- [ ] Multi-Modal Support
+- [ ] ... RAG?
