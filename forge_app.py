@@ -1,3 +1,4 @@
+from typing import Generator
 import gradio as gr
 import subprocess
 import ollama
@@ -37,29 +38,24 @@ def pull_model(model: str):
 def unload():
     """Free the memory occupied by model"""
     if LAST_USED_MODEL is not None:
-        ollama.generate(model=LAST_USED_MODEL, prompt="", keep_alive="0m")
+        ollama.generate(model=LAST_USED_MODEL, prompt="", keep_alive=0)
 
 
-def chat(query: str | dict, history: list[tuple[str]], model: str) -> str:
+def chat(query: dict, history: list[tuple[str]], model: str) -> str:
     global LAST_USED_MODEL
 
     if model is None or not model.strip():
         raise gr.Error("No Model Selected...")
 
-    multi_modal: bool = isinstance(query, dict)
-
-    if multi_modal:
-        files: list[dict] = query.get("files", [])
-        query: str = query.get("text", "")
-        if not files:
-            multi_modal = False
-    else:
-        files = None
+    multi_modal = True
+    files: list[dict] = query.get("files", [])
+    query: str = query.get("text", "")
+    if not files:
+        multi_modal = False
 
     assert isinstance(query, str)
-    if not query.strip():
-        gr.Warning("Empty Inputs...")
-        return None
+    if not multi_modal and not query.strip():
+        raise gr.Error("Empty Inputs...")
 
     if multi_modal:
         if len(files) > 1:
@@ -115,10 +111,46 @@ def chat(query: str | dict, history: list[tuple[str]], model: str) -> str:
 
     if LAST_USED_MODEL != model:
         unload()
+        LAST_USED_MODEL = model
 
     response = ollama.chat(model=model, messages=messages, keep_alive="5m")
-    LAST_USED_MODEL = model
-    return response["message"]["content"]
+    return str(response["message"]["content"])
+
+
+def chat_stream(
+    query: str, history: list[tuple[str]], model: str
+) -> Generator[str, None, None]:
+    global LAST_USED_MODEL
+
+    if model is None or not model.strip():
+        raise gr.Error("No Model Selected...")
+
+    assert isinstance(query, str)
+    if not query.strip():
+        raise gr.Error("Empty Prompt Input...")
+
+    messages: list[dict] = []
+
+    for msg in history:
+        q, r = msg
+        if q is None or not q.strip():
+            continue
+        if r is None or not r.strip():
+            continue
+
+        messages.append({"role": "user", "content": q})
+        messages.append({"role": "assistant", "content": r})
+
+    messages.append({"role": "user", "content": query})
+
+    if LAST_USED_MODEL != model:
+        unload()
+        LAST_USED_MODEL = model
+
+    response = ""
+    for part in ollama.chat(model=model, messages=messages, stream=True):
+        response += str(part["message"]["content"])
+        yield response
 
 
 with open("../script.js", "r", encoding="utf-8") as script:
@@ -178,11 +210,12 @@ with block:
 
         with gr.Tab(label="Chat", id="chat", visible=True) as tab_chat:
             gr.ChatInterface(
-                fn=chat,
+                fn=chat_stream,
                 multimodal=False,
                 fill_height=True,
                 fill_width=True,
                 additional_inputs=[model],
+                analytics_enabled=False,
             )
 
         with gr.Tab(label="Multi-Modal Chat", id="chat-m", visible=False) as tab_chat_m:
@@ -192,6 +225,7 @@ with block:
                 fill_height=True,
                 fill_width=True,
                 additional_inputs=[model],
+                analytics_enabled=False,
             )
 
         def on_mode(cb: bool):

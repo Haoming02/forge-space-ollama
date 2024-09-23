@@ -5,6 +5,7 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
 
 - Install [Ollama](https://ollama.com/download)
 - **(Optional)** Pull a model of choice
+    - *(You can do so within the Space)*
 
 ## Features
 
@@ -35,6 +36,8 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
 
 ## Roadmap
 - [X] Multi-Modal Support
-    - Only `images`, `.txt`, `.json`, `.yaml`, `.xml` files are supported...
+    - Only `images`, `.txt`, `.json`, `.yaml`, `.xml` files are currently supported
+- [X] Message Stream
+    - Only regular chat is supported cause... Gradio...
 - [ ] Save/Load Chat History
 - [ ] ... RAG?
