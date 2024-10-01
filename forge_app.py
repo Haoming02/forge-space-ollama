@@ -15,24 +15,18 @@ LAST_USED_MODEL: str = None
 
 def list_models() -> list[str]:
     """List all locally available models"""
-
     models: list[dict] = ollama.list().get("models", [])
-    mdl = [model["name"] for model in models]
-
-    return mdl
+    return [model["name"] for model in models]
 
 
 def pull_model(model: str):
     """Download selected model"""
-
-    gr.Info(f'Downloading "{model}"...')
-
     try:
+        gr.Info(f'Downloading "{model}"...')
         ollama.pull(model)
+        gr.Info(f'Model "{model}" is ready!')
     except ollama._types.ResponseError:
         raise gr.Error("Failed to download model...")
-
-    gr.Info(f'Model "{model}" is ready!')
 
 
 def unload():
@@ -42,8 +36,6 @@ def unload():
 
 
 def chat(query: dict, history: list[tuple[str]], model: str) -> str:
-    global LAST_USED_MODEL
-
     if model is None or not model.strip():
         raise gr.Error("No Model Selected...")
 
@@ -53,27 +45,28 @@ def chat(query: dict, history: list[tuple[str]], model: str) -> str:
     if not files:
         multi_modal = False
 
-    assert isinstance(query, str)
     if not multi_modal and not query.strip():
-        raise gr.Error("Empty Inputs...")
+        raise gr.Error("Inputs are Empty...")
 
+    images: list[str] = []
     if multi_modal:
         if len(files) > 1:
-            gr.Warning("Only 1 file is supported at a time...")
+            gr.Warning(
+                """Multiple files is currently not supported...
+                (using the first file in this message)"""
+            )
 
-        img = None
-        file: dict = files[0]
-
+        file = files[0]
         file_path: str = file["path"]
         file_type: str = file.get("mime_type", "")
 
         if "text" in file_type:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = f.read()
-            query = f"{query}\n{data}"
+            query = f"{query}\n\n```\n{data}\n```"
 
         elif "image" in file_type:
-            img: str = file_path
+            images.append(file_path)
 
         else:
             flag = False
@@ -81,17 +74,17 @@ def chat(query: dict, history: list[tuple[str]], model: str) -> str:
                 if file_path.endswith(T):
                     with open(file_path, "r", encoding="utf-8") as f:
                         data = f.read()
-                    query = f"{query}\n```{T}\n{data}\n```"
+                    query = f"{query}\n\n```{T}\n{data}\n```"
                     flag = True
                     break
 
             if not flag:
                 if file_path.endswith("pdf"):
-                    raise gr.Error("PDF files are not supported...")
-                elif not file_type:
-                    raise gr.Error("Unrecognized File Type...")
+                    gr.Warning("PDF is currently not supported...")
+                elif bool(file_type):
+                    raise gr.Error(f'Unsupported File Type: "{file_type}"...')
                 else:
-                    raise gr.Error(f"Unsupported File Type: [{file_type}]...")
+                    raise gr.Error("Unrecognized File Type...")
 
     messages: list[dict] = []
 
@@ -106,9 +99,11 @@ def chat(query: dict, history: list[tuple[str]], model: str) -> str:
         messages.append({"role": "assistant", "content": r})
 
     messages.append({"role": "user", "content": query})
-    if multi_modal and img:
-        messages[-1].update({"images": [img]})
 
+    if images:
+        messages[-1].update({"images": images})
+
+    global LAST_USED_MODEL
     if LAST_USED_MODEL != model:
         unload()
         LAST_USED_MODEL = model
@@ -120,14 +115,11 @@ def chat(query: dict, history: list[tuple[str]], model: str) -> str:
 def chat_stream(
     query: str, history: list[tuple[str]], model: str
 ) -> Generator[str, None, None]:
-    global LAST_USED_MODEL
-
     if model is None or not model.strip():
         raise gr.Error("No Model Selected...")
 
-    assert isinstance(query, str)
     if not query.strip():
-        raise gr.Error("Empty Prompt Input...")
+        raise gr.Error("Message is Empty...")
 
     messages: list[dict] = []
 
@@ -143,6 +135,7 @@ def chat_stream(
 
     messages.append({"role": "user", "content": query})
 
+    global LAST_USED_MODEL
     if LAST_USED_MODEL != model:
         unload()
         LAST_USED_MODEL = model

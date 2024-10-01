@@ -26,9 +26,9 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
 - Support markdown for both query and response
     - **\`\`\`** for code block; **\`** for inline code; **\*** for italic; **\*\*** for bold; etc.
 - Support chat history
-- Press **Retry** to send the same query again, to get a different response
-- Press **Undo** to delete the last message
-- Press **Clear** to reset the chat history message
+- Press **Retry** to send the same query again *(to get a different response)*
+- Press **Undo** to delete the previous messages
+- Press **Clear** to reset the chat history
 
 <p align="center">
 <img src="./img/ui.png" width=768>

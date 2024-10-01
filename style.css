@@ -2,6 +2,10 @@
     min-height: 72vh !important;
 }
 
+footer {
+    display: none !important;
+}
+
 #mdl-name a {
     color: lightskyblue;
     text-decoration: underline;
