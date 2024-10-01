@@ -41,3 +41,7 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
     - Only regular chat is supported cause... Gradio...
 - [ ] Save/Load Chat History
 - [ ] ... RAG?
+
+## Configs
+- [X] Default model to start with
+- [X] Default tab to start with

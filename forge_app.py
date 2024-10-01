@@ -2,12 +2,18 @@ from typing import Generator
 import gradio as gr
 import subprocess
 import ollama
-import spaces
+import json
 
 # ================ Launch the Ollama Server ================ #
 subprocess.run(["ollama", "list"], stdout=subprocess.DEVNULL)
 # ========================================================== #
 
+with open("../script.js", "r", encoding="utf-8") as script:
+    JS: str = script.read()
+
+CONFIG: dict = None
+CONFIG_PATH: str = "../config.json"
+"""path to user settings"""
 
 LAST_USED_MODEL: str = None
 """pass into keep_alive to unload"""
@@ -146,85 +152,102 @@ def chat_stream(
         yield response
 
 
-with open("../script.js", "r", encoding="utf-8") as script:
-    JS = script.read()
+def load_configs() -> tuple[list, str, str]:
+    global CONFIG
+    with open(CONFIG_PATH, "r", encoding="utf-8") as file:
+        CONFIG = json.load(file)
 
-block = gr.Blocks(css="../style.css").queue()
-with block:
+    all_models: list[str] = list_models()
 
-    mdl = list_models()
-    no_mdl: bool = len(mdl) == 0
+    mdl: str | None = CONFIG.get("default_model", None)
+    default_model: str = (
+        (mdl if mdl in all_models else all_models[0]) if all_models else None
+    )
 
-    with gr.Tabs(selected="mdl" if no_mdl else "chat"):
+    default_tab: str = CONFIG.get("default_tab", "opt")
 
-        with gr.Tab(label="Models", id="mdl"):
+    return (all_models, default_model, default_tab)
 
+
+def save_configs(mdl: str, tab: str):
+    CONFIG["default_model"] = mdl
+    CONFIG["default_tab"] = tab
+
+    with open(CONFIG_PATH, "w", encoding="utf-8") as file:
+        json.dump(CONFIG, file)
+
+    gr.Info("Config Saved!")
+
+
+with gr.Blocks(css="../style.css").queue() as block:
+    all_models, default_model, default_tab = load_configs()
+
+    with gr.Tabs(selected=default_tab):
+        with gr.Tab(label="Options", id="opt"):
             with gr.Row(variant="panel"):
-
                 with gr.Column(variant="compact"):
                     model = gr.Dropdown(
                         label="Model",
-                        info="All local models",
-                        value=None if no_mdl else mdl[0],
-                        choices=mdl,
-                        allow_custom_value=False,
-                        multiselect=False,
+                        info="All locally available models",
+                        value=default_model,
+                        choices=all_models,
                     )
-
                     unload_btn = gr.Button("Unload Current Model to Free Memory")
-
                 with gr.Column(variant="compact"):
                     mdl_name = gr.Textbox(
-                        label="Model to Download",
+                        label="Download new Model",
                         info='Refer to "https://ollama.com/library" for all available models',
-                        value="gemma2:2b",
                         placeholder="gemma2:2b",
-                        lines=1,
                         max_lines=1,
-                        interactive=True,
                         elem_id="mdl-name",
                     )
-
                     pull_btn = gr.Button("Download")
 
-            mm_cb = gr.Checkbox(
-                value=False,
-                label="Multi-Modal",
-                info="Enable uploading images and text files",
-            )
+            with gr.Accordion("Configs", open=False):
+                config_default_model = gr.Dropdown(
+                    label="Default Model",
+                    value=default_model,
+                    choices=all_models,
+                )
+                config_default_tab = gr.Radio(
+                    label="Default Tab",
+                    choices=(
+                        ("Options", "opt"),
+                        ("Chat", "chat"),
+                        ("Multi-Modal Chat", "chat-m"),
+                    ),
+                    value=default_tab,
+                )
+
+                save_btn = gr.Button("Save")
 
             unload_btn.click(fn=unload)
-
             pull_btn.click(fn=pull_model, inputs=[mdl_name]).success(
-                fn=lambda: gr.update(choices=list_models()),
-                inputs=None,
-                outputs=[model],
+                fn=lambda: [
+                    gr.update(choices=list_models()),
+                    gr.update(choices=list_models()),
+                ],
+                outputs=[model, config_default_model],
+            )
+            save_btn.click(
+                fn=save_configs,
+                inputs=[config_default_model, config_default_tab],
             )
 
-        with gr.Tab(label="Chat", id="chat", visible=True) as tab_chat:
+        with gr.Tab(label="Chat", id="chat"):
             gr.ChatInterface(
                 fn=chat_stream,
                 multimodal=False,
-                fill_height=True,
-                fill_width=True,
                 additional_inputs=[model],
                 analytics_enabled=False,
             )
-
-        with gr.Tab(label="Multi-Modal Chat", id="chat-m", visible=False) as tab_chat_m:
+        with gr.Tab(label="Multi-Modal Chat", id="chat-m"):
             gr.ChatInterface(
                 fn=chat,
                 multimodal=True,
-                fill_height=True,
-                fill_width=True,
                 additional_inputs=[model],
                 analytics_enabled=False,
             )
-
-        def on_mode(cb: bool):
-            return [gr.update(visible=(not cb)), gr.update(visible=cb)]
-
-        mm_cb.change(fn=on_mode, inputs=[mm_cb], outputs=[tab_chat, tab_chat_m])
 
     block.load(fn=None, js=JS)
     block.unload(fn=unload)
