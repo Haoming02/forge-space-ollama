@@ -1,6 +1,10 @@
 ﻿# Forge Space Ollama
 This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffusion-webui-forge), which adds a new page for you to chat with a LLM model locally via [Ollama](https://ollama.com/), built on [Gradio](https://github.com/gradio-app/gradio)'s `ChatInterface` component.
 
+<p align="center">
+<img src="./img/ui.png" width=768>
+</p>
+
 ## Requirement
 
 - Install [Ollama](https://ollama.com/download)
@@ -39,7 +43,8 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
     - `Enter` for submit; `Shift + Enter` for newline
 - Support markdown for both query and response
     - **\`\`\`** for code block; **\`** for inline code; **\*** for italic; **\*\*** for bold; etc.
-- Support chat history
+- Support context retention
+    - You can ask the model to further explain the previous response, etc.
 - Press **Retry** to send the same query again *(to get a different response)*
 - Press **Undo** to delete the previous messages
 - Press **Clear** to reset the chat history
@@ -47,11 +52,11 @@ This is a Space for the [Forge Webui](https://github.com/lllyasviel/stable-diffu
 - Support file uploads
     - For `images`, a vision model *(**eg.** [llava:7b](https://ollama.com/library/llava))* is required
     - Most common text files *(`.txt`, `.json`, `.yaml`, `.xml`)* and codes *(`.py`, etc)* should be supported
-    - `.pdf` is not supported (yet?) due to the need of additional package...
+    - `.pdf` is not supported due to the need of additional package...
     - If you find a file type that is not supported, you can open an **Issue**
 
 <p align="center">
-<img src="./img/ui.png" width=768>
+<img src="./img/mm.png" width=768>
 </p>
 
 ## Roadmap
