@@ -34,8 +34,8 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as config:
 
 def list_models() -> list[str]:
     """List all locally available models"""
-    models: list[dict] = ollama.list().get("models", [])
-    return [model["name"] for model in models]
+    models: list[ollama.ListResponse.Model] = ollama.list().models
+    return [model.model for model in models]
 
 
 def pull_model(model: str):
